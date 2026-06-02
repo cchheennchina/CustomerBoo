@@ -1,0 +1,287 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum HealthStatus {
+  HEALTHY
+  SUBHEALTHY
+  DANGEROUS
+}
+
+enum EngagementType {
+  EMAIL_SENT
+  EMAIL_OPEN
+  CALL
+  MEETING
+  MESSAGE
+  PROPOSAL_SENT
+  LINK_CLICK
+}
+
+enum TaskAssignee {
+  SALES
+  PRESALES
+  DELIVERY
+}
+
+enum TaskSource {
+  MANUAL
+  MEETING
+  RISK
+  FOLLOW_UP
+  WEEKLY
+}
+
+enum RiskType {
+  SILENCE
+  COMPETITOR
+  PERSONNEL
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum NotificationType {
+  DAILY_BRIEF
+  WEEKLY_WARPACK
+  FOLLOW_UP
+  RISK
+  SYSTEM
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  displayName  String
+  role         String   @default("MARKETER")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model SystemConfig {
+  id              String   @id @default("default")
+  dashboardConfig String   @default("{}")
+  aiConfig        String   @default("{}")
+  updatedAt       DateTime @updatedAt
+}
+
+model UserSettings {
+  id                    String   @id @default(cuid())
+  email                 String   @unique @default("marketer@example.com")
+  notifyEmail           Boolean  @default(true)
+  notifyInApp           Boolean  @default(true)
+  dailyBriefEnabled     Boolean  @default(true)
+  weeklyWarPackEnabled  Boolean  @default(true)
+  availableSlots        String   @default("[{\"day\":\"TUE\",\"start\":\"14:00\",\"end\":\"16:00\"},{\"day\":\"THU\",\"start\":\"14:00\",\"end\":\"17:00\"},{\"day\":\"FRI\",\"start\":\"10:00\",\"end\":\"12:00\"}]")
+  quietHoursStart       String?
+  quietHoursEnd         String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model Customer {
+  id          String        @id @default(cuid())
+  companyName String
+  industry    String?
+  keywords    String        @default("[]")
+  contacts    Contact[]
+  opportunities Opportunity[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model Contact {
+  id           String       @id @default(cuid())
+  customerId   String
+  customer     Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  name         String
+  title        String?
+  isDecisionMaker Boolean   @default(false)
+  bestContactSlots String   @default("[]")
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model Opportunity {
+  id                  String   @id @default(cuid())
+  customerId          String
+  customer            Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  name                String
+  amount              Float    @default(0)
+  winProbability      Float    @default(0.5)
+  stage               String   @default("初步接触")
+  lastContactAt       DateTime?
+  nextActivityAt      DateTime?
+  deadlineAt          DateTime?
+  proposalCount       Int      @default(0)
+  emailOpenCount      Int      @default(0)
+  meetingAttendRate   Float    @default(1)
+  requirementText     String   @default("")
+  competitorNotes     String   @default("")
+  personnelNotes      String   @default("")
+  healthScore         Int      @default(0)
+  healthStatus        HealthStatus @default(SUBHEALTHY)
+  engagements         Engagement[]
+  healthSnapshots     HealthScoreSnapshot[]
+  followUpRecommendations FollowUpRecommendation[]
+  reminders           Reminder[]
+  contentItems        ContentItem[]
+  contentCalendar     ContentCalendar[]
+  meetingSessions     MeetingSession[]
+  riskSignals         RiskSignal[]
+  tasks               Task[]
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model Engagement {
+  id            String         @id @default(cuid())
+  opportunityId String
+  opportunity   Opportunity    @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  type          EngagementType
+  occurredAt    DateTime       @default(now())
+  metadata      String         @default("{}")
+  createdAt     DateTime       @default(now())
+}
+
+model HealthScoreSnapshot {
+  id              String      @id @default(cuid())
+  opportunityId   String
+  opportunity     Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  totalScore      Int
+  status          HealthStatus
+  interactionScore Float
+  decisionChainScore Float
+  fitScore        Float
+  urgencyScore    Float
+  deductions      String      @default("[]")
+  createdAt       DateTime    @default(now())
+}
+
+model FollowUpRecommendation {
+  id              String      @id @default(cuid())
+  opportunityId   String
+  opportunity     Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  action          String
+  channel         String?
+  suggestedAt     DateTime?
+  expectedRate    Float?
+  script          String?
+  createdAt       DateTime    @default(now())
+}
+
+model Reminder {
+  id              String      @id @default(cuid())
+  opportunityId   String
+  opportunity     Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  title           String
+  message         String
+  triggerRule     String      @default("{}")
+  dueAt           DateTime?
+  isRead          Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+}
+
+model ContentItem {
+  id              String      @id @default(cuid())
+  opportunityId   String
+  opportunity     Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  title           String
+  summary         String
+  valuePoint      String
+  wechatCopy      String?
+  emailCopy       String?
+  linkedinCopy    String?
+  source          String      @default("manual")
+  relevance       Float       @default(0.8)
+  createdAt       DateTime    @default(now())
+}
+
+model ContentCalendar {
+  id              String      @id @default(cuid())
+  opportunityId   String
+  opportunity     Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  dayOfWeek       String
+  theme           String
+  contentHint     String
+  createdAt       DateTime    @default(now())
+}
+
+model MeetingSession {
+  id              String      @id @default(cuid())
+  opportunityId   String
+  opportunity     Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  title           String
+  rawInput        String
+  structuredOutput String     @default("{}")
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model RiskSignal {
+  id              String      @id @default(cuid())
+  opportunityId   String
+  opportunity     Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  type            RiskType
+  level           RiskLevel
+  message         String
+  recommendedAction String
+  successRate     Float?
+  isResolved      Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+}
+
+model Task {
+  id              String       @id @default(cuid())
+  opportunityId   String?
+  opportunity     Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  title           String
+  description     String?
+  assignee        TaskAssignee @default(SALES)
+  source          TaskSource   @default(MANUAL)
+  dueAt           DateTime?
+  completed       Boolean      @default(false)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model WeeklyWarPack {
+  id              String   @id @default(cuid())
+  weekLabel       String
+  agenda          String
+  topOpportunities String  @default("[]")
+  plans           String   @default("[]")
+  resourceNotes   String   @default("")
+  battleMapMarkdown String @default("")
+  createdAt       DateTime @default(now())
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  title     String
+  body      String
+  isRead    Boolean          @default(false)
+  metadata  String           @default("{}")
+  createdAt DateTime         @default(now())
+}
+
+model ResourceCapacity {
+  id          String   @id @default(cuid())
+  roleName    String
+  personName  String
+  weekLoad    Int      @default(0)
+  maxLoad     Int      @default(3)
+  notes       String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
