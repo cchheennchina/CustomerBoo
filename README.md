@@ -1,3 +1,0 @@
-# CustomerBoo
-TestGitHub
-CC666
